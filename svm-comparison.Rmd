@@ -1,0 +1,142 @@
+---
+title: "SVM"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+
+
+
+###implement the multuplier
+
+
+
+```{r}
+library("quadprog")
+library("e1071")
+
+#train=dat
+self_svm = function(train,Y){
+get(Y)
+train$Y = ifelse(train$Y=="1",1,-1)
+# set the problem data and parameters
+X <- as.matrix(train[,c(1,2)])
+Y <- as.matrix(train$Y)
+n <- nrow(Y)
+
+eps <- 5e-8
+
+# build  matrices needed for QP slover
+
+Q = sapply(1:n, function(i) Y[i]*t(X)[,i])
+D = t(Q)%*%Q
+d = matrix(1, nrow=n)
+b0 = rbind( matrix(0, nrow=1, ncol=1) , matrix(0, nrow=n, ncol=1) )
+A = t(rbind(matrix(Y, nrow=1, ncol=n), diag(nrow=n)))
+
+# modeling:
+alpha = solve.QP(D+eps*diag(n) , d, A, b0, meq=1, factorized=FALSE)
+  alpha = matrix(alpha$solution, nrow=n)
+  nonzero =  abs(alpha)>1e-4
+  beta = rowSums(sapply(which(nonzero), function(i) alpha[i]*Y[i]*X[i,]))
+  X_sv = X[nonzero,]
+  Y_sv = Y[nonzero,]
+  beta0 <- -0.5*(min(X_sv[Y_sv==1,]%*%beta)+max(X_sv[Y_sv==-1,]%*%beta))
+  beta0_mean = mean(sapply(which(nonzero), function(i) Y[i]-X[i,]%*%beta))
+  return(beta=c(beta,beta0,beta0_mean))#beta0_min))
+}
+
+##compare
+```
+
+
+
+##compare
+
+**numerically and grapgically**
+
+```{r}
+##compare with e1071
+set.seed(333)
+Sigma.matrix <- diag(c(1,1),2,2)
+Sigma.matrix[1,2]=0.5
+Sigma.matrix[2,1]=0.5
+X1 =MASS::mvrnorm(n=100, c(-0.3,0), Sigma.matrix)%>%as.data.frame()
+X2 =MASS::mvrnorm(n=100, c(3.5,5), Sigma.matrix)%>%as.data.frame()
+Y = c(rep(1,100),rep(-1,100))
+X_matrix = rbind(X1,X2)
+dat = cbind(X_matrix,Y)
+
+
+
+library(e1071)
+dat = dat%>%mutate(Y=as.factor(Y))
+svmfit = svm(Y ~ ., data = dat, kernel = "linear", scale = FALSE, type="C-classification")
+print(svmfit)
+coef(svmfit)
+para_svm=coef(svmfit)
+self_svm(dat,"Y")
+
+##own try
+self_svm(dat,"Y")
+beta=self_svm(dat,"Y")[c(1,2)]
+beta0 = self_svm(dat,"Y")[3]
+beta0_mean=self_svm(dat, "Y")[4]
+
+
+ggplot(dat, aes(x=V1, y=V2))+
+  geom_point(aes(color=as.factor(Y)))+geom_abline(
+  slope=-para_svm[2]/para_svm[3],
+  intercept=-para_svm[1]/para_svm[3],
+  color = "red",
+) + geom_abline(
+  slope=-para_svm[2]/para_svm[3],
+  intercept=-(para_svm[1]+1)/para_svm[3],
+  color = "red",
+  linetype = "dashed"
+)+ geom_abline(
+   slope=-para_svm[2]/para_svm[3],
+  intercept=-(para_svm[1]-1)/para_svm[3],
+  color = "red",
+  linetype = "dashed"
+)+ geom_abline(
+  slope=-beta[1]/beta[2],
+  intercept=-beta0/beta[2],
+  color = "blue",
+  alpha = 0.3
+) + geom_abline(
+  slope=-beta[1]/beta[2],
+  intercept=-(beta0+1)/beta[2],
+  color = "blue",
+  linetype = "twodash",
+  alpha=0.3
+)+ geom_abline(
+  slope=-beta[1]/beta[2],
+  intercept=-(beta0-1)/beta[2],
+  color = "blue",
+  linetype = "twodash",
+  alpha=0.3
+)+ geom_abline(
+  slope=-beta[1]/beta[2],
+  intercept=-beta0_mean/beta[2],
+  color = "green",
+  alpha = 0.4
+) + geom_abline(
+  slope=-beta[1]/beta[2],
+  intercept=-(beta0_mean+1)/beta[2],
+  color = "green",
+  linetype = "twodash",
+  alpha=0.4
+)+ geom_abline(
+  slope=-beta[1]/beta[2],
+  intercept=-(beta0_mean-1)/beta[2],
+  color = "green",
+  linetype = "twodash",
+  alpha=0.4
+)  
+
+```
+
