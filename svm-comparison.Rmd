@@ -46,7 +46,8 @@ alpha = solve.QP(D+eps*diag(n) , d, A, b0, meq=1, factorized=FALSE)
   Y_sv = Y[nonzero,]
   beta0 <- -0.5*(min(X_sv[Y_sv==1,]%*%beta)+max(X_sv[Y_sv==-1,]%*%beta))
   beta0_mean = mean(sapply(which(nonzero), function(i) Y[i]-X[i,]%*%beta))
-  return(beta=c(beta,beta0,beta0_mean))#beta0_min))
+  beta0_adj_mean=0.5*(mean(Y_sv[Y_sv==1]-X_sv[Y_sv==1,]%*%beta)+mean(Y_sv[Y_sv==-1]-X_sv[Y_sv==-1,]%*%beta))
+  return(beta=c(beta,beta0,beta0_mean,beta0_adj_mean))#beta0_min))
 }
 
 ##compare
@@ -57,6 +58,8 @@ alpha = solve.QP(D+eps*diag(n) , d, A, b0, meq=1, factorized=FALSE)
 ##compare
 
 **numerically and grapgically**
+
+when the data is separable but not that differen, we can see the difference across different method.
 
 ```{r}
 ##compare with e1071
@@ -85,58 +88,76 @@ self_svm(dat,"Y")
 beta=self_svm(dat,"Y")[c(1,2)]
 beta0 = self_svm(dat,"Y")[3]
 beta0_mean=self_svm(dat, "Y")[4]
+beta0_adj_mean=self_svm(dat,"Y")[5]
 
 
 ggplot(dat, aes(x=V1, y=V2))+
-  geom_point(aes(color=as.factor(Y)))+geom_abline(
+  geom_point(aes(shape=as.factor(Y)))+geom_abline(aes(
   slope=-para_svm[2]/para_svm[3],
   intercept=-para_svm[1]/para_svm[3],
-  color = "red",
-) + geom_abline(
+  color = "R-package")
+) + geom_abline(aes(
   slope=-para_svm[2]/para_svm[3],
   intercept=-(para_svm[1]+1)/para_svm[3],
-  color = "red",
+  color = "R-package"),
   linetype = "dashed"
-)+ geom_abline(
+)+ geom_abline(aes(
    slope=-para_svm[2]/para_svm[3],
   intercept=-(para_svm[1]-1)/para_svm[3],
-  color = "red",
+  color = "R-package"),
   linetype = "dashed"
-)+ geom_abline(
+)+ geom_abline(aes(
   slope=-beta[1]/beta[2],
   intercept=-beta0/beta[2],
-  color = "blue",
-  alpha = 0.3
-) + geom_abline(
+  color = "self-strict-intercept"),
+  alpha = 0.8
+) + geom_abline(aes(
   slope=-beta[1]/beta[2],
   intercept=-(beta0+1)/beta[2],
-  color = "blue",
+  color = "self-strict-intercept"),
   linetype = "twodash",
-  alpha=0.3
-)+ geom_abline(
+  alpha=0.8
+)+ geom_abline(aes(
   slope=-beta[1]/beta[2],
   intercept=-(beta0-1)/beta[2],
-  color = "blue",
+  color = "self-strict-intercept"),
   linetype = "twodash",
-  alpha=0.3
-)+ geom_abline(
+  alpha=0.8
+)+ geom_abline(aes(
   slope=-beta[1]/beta[2],
   intercept=-beta0_mean/beta[2],
-  color = "green",
+  color = "self-mean-intercept"),
   alpha = 0.4
-) + geom_abline(
+) + geom_abline(aes(
   slope=-beta[1]/beta[2],
   intercept=-(beta0_mean+1)/beta[2],
-  color = "green",
+  color = "self-mean-intercept"),
   linetype = "twodash",
   alpha=0.4
-)+ geom_abline(
+)+ geom_abline(aes(
   slope=-beta[1]/beta[2],
   intercept=-(beta0_mean-1)/beta[2],
-  color = "green",
+  color = "self-mean-intercept"),
   linetype = "twodash",
   alpha=0.4
-)  
+) + geom_abline(aes(
+  slope=-beta[1]/beta[2],
+  intercept=-beta0_adj_mean/beta[2],
+  color = "self-adj-mean-intercept"),
+) + geom_abline(aes(
+  slope=-beta[1]/beta[2],
+  intercept=-(beta0_adj_mean+1)/beta[2],
+  color = "self-adj-mean-intercept"),
+  linetype = "twodash"
+)+ geom_abline(aes(
+  slope=-beta[1]/beta[2],
+  intercept=-(beta0_adj_mean-1)/beta[2],
+  color = "self-adj-mean-intercept"),
+  linetype = "twodash"
+) +scale_color_manual(name="Line Color",
+    values=c("red","blue","green","black"))
 
 ```
+
+
 
